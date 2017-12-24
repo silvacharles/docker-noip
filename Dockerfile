@@ -1,5 +1,5 @@
 # Informa qual imagem será gerada a nova imagem
-FROM charlessilva/alpine
+FROM alpine
 
 MAINTAINER Charles Silva <suporte@charlessilva.com.br>
 
