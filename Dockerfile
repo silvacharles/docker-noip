@@ -1,13 +1,28 @@
-# Informa qual imagem será gerada a nova imagem
-FROM alpine
+FROM rust:1.87.0-slim-bookworm AS builder
+LABEL org.opencontainers.image.authors="Charles Silva <suporte@charlessilva.com.br>"
+LABEL org.opencontainers.image.description="Update Client for No-IP's Dynamic DNS service"
 
-MAINTAINER Charles Silva <suporte@charlessilva.com.br>
+ARG VERSION=3.0.0
+ARG TARGETARCH
 
-# Instrução para execultar um arquivo
-RUN apk add --update tar build-base && \
-wget -qO noip.tar.gz http://www.noip.com/client/linux/noip-duc-linux.tar.gz && \
-mkdir noip && tar -C noip --strip-components=1 -xvf ./noip.tar.gz && \
-cd noip && sed -i '/no-ip2/d' Makefile &&  make install && \
-rm -rf /var/cache/apk/* && rm ../noip.tar.gz
-# Informa qual comando será executado quando um container for iniciado
-CMD noip2; while pgrep noip > -; do echo "O processo está em execução"; sleep 5; done; echo "No-ip parou"; exit 1
+RUN apt update \
+ && apt install -y --no-install-recommends ca-certificates wget \
+ && wget https://dmej8g5cpdyqd.cloudfront.net/downloads/noip-duc_${VERSION}.tar.gz \
+ && tar xzf noip-duc_${VERSION}.tar.gz -C /tmp/ \
+ && rm noip-duc_${VERSION}.tar.gz \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp/noip-duc_${VERSION}
+
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+ARG VERSION=3.0.0
+
+RUN apt update \
+ && apt install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /tmp/noip-duc_${VERSION}/target/release/noip-duc /usr/bin
+
+ENTRYPOINT ["/usr/bin/noip-duc"]
